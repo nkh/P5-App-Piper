@@ -122,19 +122,33 @@ if ($debug_definitions)
 
 sub r
 {
-my $i = substr ($_[0], 1);
+#my $i = substr ($_[0], 1);
+my $i = $_[0] ;
 
 warn sprintf "%-40s " . color('grey6') . "[$i]" . color('reset') . " %-25s $definitions[$i]\n", $_[1], $rx[$i] if $debug ;
 
 $rp[$i][0] . ($rp[$i][1] // $_[1]) . $rp[$i][2] 
 }
 
+#do {s/($r)/r(%+)/gen ; print } for(<>) ;
+#use Data::TreeDumper ;
+#print DumpTree \@rx ;
+
+
 for(<>)
 	{
-	my $o = $_ if $debug ;
+	my $colored = '' ;
 
-	s/($r)/r(%+)/gen ;
+	for (my $i = 0 ; $i < @rx ; $i++)
+		{
+		while(m/\G(.*?)($rx[$i])/gc) {$colored .= $1 . r($i, $2) ; last} 
+		}
 
-	print !$debug ? $_ : "$o$_\n" ;
+	if(m/\G(.+)/) {$colored .= $1} 
+
+	print if $debug ;
+	print $colored . "\n" ;
 	}
+
+
 
