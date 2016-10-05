@@ -1,0 +1,59 @@
+for fixed formats a simpler definition than regexes
+
+move color_pipe and both version of piper here and  in git
+
+need a complex, but easy to use, way to describe what the regex match
+
+debug modes
+	display regex and color definitions
+	dispay generated regex
+	display matches
+		with and without colot
+		what regex matched, as it looked on the command line
+
+accept ansi123 as a valid color even if Term:.ANSIColor does not
+
+colors changing for lines
+	a regex has a color at a specif line, another at another line
+		can be done with two regexes, simpler clearer, but more verbose
+
+vertical cut
+	define range in line, start-length or regex, and the regexs to be applied to it
+		this scopes the regexs
+	allow perl expression for range 3..7 
+	sed -n '3,7p; end +1s'
+	make it possible to color in parallel via pipes
+
+
+	eg:  1 2 3 4 5 6 7 8 9 0
+		piper v_cut 1 .. 6   regex-color regex-color
+		piper
+
+	range can also be created by inserting code in stdin that needs to be matches by 
+	subsequent reges
+		s/(?<=.{10})/code/
+		new regex are is: (r1|r2|r3).*code
+
+
+
+color from LS_COLOR
+
+aliases
+	for regex, color, or regex-color
+
+fix bug in example file in this directory
+
+add tests to distro
+
+regex mode
+	free, regexes are reused
+	sequential r2 matches only if r1 matches, ..
+	number of time a regex can be used in the line
+		1:regex, can only color once
+	multi color per regex, aka normal perl regext
+		/r1 .. r2 .. r3/ c1,c2,c3
+
+
+
+
+	

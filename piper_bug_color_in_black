@@ -1,0 +1,3 @@
+   27  echo {a..e} | piper --debug '.' 'black on_rgb123'
+   28  history | tail -n 2
+   29  history | tail -n 3 > piper_bug_color_in_black

@@ -1,0 +1,39 @@
+#!/usr/bin/env perl
+
+use strict ; 
+use warnings ; 
+use Term::ANSIColor ;
+
+if (grep {/^--help/} @ARGV)
+	{
+	print <<'EOH' ;
+Usage:	$> command | color_pipe regex color [regex color ...] | command ...
+	color_pipe colors stdio using perl regex and ANSI colors 
+Example:
+	color_pipe NAME red DESCRIPTION bright_blue 'MAX(IMUM)*' green
+EOH
+	exit 0 ;
+	}
+
+do { print <> and exit(0) } unless @ARGV ;
+
+my ($i, $letter, $regex, $code, @colors) = (0, 'A', '', '$colors[') ;
+my $reset = color('reset') ;
+
+while (@ARGV)
+	{
+	$regex .= '|' if $i ;
+	$regex .= "(?'$letter'" . shift(@ARGV) . ')' ;
+	push @colors, color(shift @ARGV // 'reset') ;
+
+	$code .= "defined \$+{$letter} ? $i : " ; 
+	$letter++ ;
+	$i++ ;
+	}
+
+$code .= "'' ] " ;
+my $compiler_regex = qr/$regex/ ;
+
+while(<>) { s/($compiler_regex)/$code . '. $1 . $reset'/gee ; print ; }
+
+
