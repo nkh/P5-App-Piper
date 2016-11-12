@@ -4,12 +4,19 @@ use strict ;
 use warnings ; 
 use Term::ANSIColor qw(color colorvalid) ;
 
+# todo:
+# local $Term::ANSIColor::AUTOLOCAL = 1;
+# push /pop
+# Xterm position
+
 print <> and exit(0) unless @ARGV ;
 
+my $global_match = (grep {/^--global$/} @ARGV);
 my $debug = (grep {/^--debug$/} @ARGV);
 my $debug_definitions = (grep {/^--debug_definitions$/} @ARGV);
 
 @ARGV = (grep {!/^--debug.*$/} @ARGV);
+@ARGV = (grep {!/^--global*$/} @ARGV);
 
 print <<'EOH' and exit 0 if (grep {/^--help$/} @ARGV) || @ARGV % 2 ;
 Usage:	$> command | piper perl_regex replacement|color|block ...
@@ -38,8 +45,10 @@ Usage:	$> command | piper perl_regex replacement|color|block ...
 		replacement. Empty color declaration is allowed (see examples).
 
 Options:
-	--help  displays this message
-	--debug displays how the color, or block, is parsed
+	--help               displays this message
+	--global             do global matching rather than linear
+	--debug              displays how the color, or block, is parsed
+	--debug_definitions  displays regex and defintions before matching
 
 Example:
 	# color trailing spaces, replace tabs with a space, colors 'MI' and 'MINI'
@@ -73,12 +82,14 @@ my $KEEP_MATCH ;
 
 #debug variables
 my @definitions ;
+my $regex_index = 0 ;
 
 my (@rx, @rp) ; 
 
 while(@ARGV)
 	{
-	push @rx, shift @ARGV ;
+	my $rx = shift @ARGV ;
+	push @rx, $rx ;
 
 	$_ = shift @ARGV ;
 
@@ -101,9 +112,17 @@ while(@ARGV)
 
 	$t = $KEEP_MATCH if defined $t && $t eq '' && ($v1) ;
 
-	push @definitions, sprintf "${c1}$cd1 - @{[$t // '*keep match*']} - ${c2}$cd2 ..." . color('reset') if $debug ;
+	push @definitions,
+		sprintf 
+			color('grey6') . "[$regex_index]" . color('reset') 
+			. sprintf(" %-25s", $rx)
+			. " ${c1}$cd1 - @{[$t // '*keep match*']} - ${c2}$cd2 ..."
+			. color('reset')
+
+		if $debug || $debug_definitions ;
 
 	push @rp,[$c1, $t, $c2] ;
+	$regex_index++ ;
 	} 
 
 my $r = join '|', map {"(?'r$_'" . $rx[$_] . ')' } 0 .. @rx -1 ;
@@ -111,44 +130,37 @@ my $r = join '|', map {"(?'r$_'" . $rx[$_] . ')' } 0 .. @rx -1 ;
 if ($debug_definitions)
 	{
 	warn "$r\n\n" ;
-
-	for (0 .. $#definitions)
-		{
-		warn sprintf color('grey6') . "[$_]" . color('reset') . " %-25s $definitions[$_]\n", $rx[$_] ;
-		}
-
-	warn "\n" ;
+	warn join("\n", @definitions), "\n" ;
 	}
-
 sub r
 {
-#my $i = substr ($_[0], 1);
-my $i = $_[0] ;
+my $i = $global_match ? chop $_[0] : $_[0] ;
 
-warn sprintf "%-40s " . color('grey6') . "[$i]" . color('reset') . " %-25s $definitions[$i]\n", $_[1], $rx[$i] if $debug ;
+warn sprintf "%-40s $definitions[$i]\n", '<'.$_[1].'>' if $debug ;
 
 $rp[$i][0] . ($rp[$i][1] // $_[1]) . $rp[$i][2] 
 }
 
-#do {s/($r)/r(%+)/gen ; print } for(<>) ;
-#use Data::TreeDumper ;
-#print DumpTree \@rx ;
-
-
-for(<>)
+if ($global_match)
 	{
-	my $colored = '' ;
-
-	for (my $i = 0 ; $i < @rx ; $i++)
-		{
-		while(m/\G(.*?)($rx[$i])/gc) {$colored .= $1 . r($i, $2) ; last} 
-		}
-
-	if(m/\G(.+)/) {$colored .= $1} 
-
-	print if $debug ;
-	print $colored . "\n" ;
+	do {s/($r)/r(%+)/gen ; print } for(<>) ;
 	}
+else
+	{
+	for(<>)
+		{
+		my $colored = '' ;
 
+		for (my $i = 0 ; $i < @rx ; $i++)
+			{
+			while(m/\G(.*?)($rx[$i])/gc) {$colored .= $1 . r($i, $2) ; last} 
+			}
+
+		if(m/\G(.+)/) {$colored .= $1} 
+
+		print if $debug ;
+		print $colored . "\n" ;
+		}
+	}
 
 

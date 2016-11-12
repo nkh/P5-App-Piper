@@ -1,59 +1,703 @@
-for fixed formats a simpler definition than regexes
 
-move color_pipe and both version of piper here and  in git
+piper - a command line utility to colorize a stream of text
 
-need a complex, but easy to use, way to describe what the regex match
-
-debug modes
-	display regex and color definitions
-	dispay generated regex
-	display matches
-		with and without colot
-		what regex matched, as it looked on the command line
-
-accept ansi123 as a valid color even if Term:.ANSIColor does not
-
-colors changing for lines
-	a regex has a color at a specif line, another at another line
-		can be done with two regexes, simpler clearer, but more verbose
-
-vertical cut
-	define range in line, start-length or regex, and the regexs to be applied to it
-		this scopes the regexs
-	allow perl expression for range 3..7 
-	sed -n '3,7p; end +1s'
-	make it possible to color in parallel via pipes
-
-
-	eg:  1 2 3 4 5 6 7 8 9 0
-		piper v_cut 1 .. 6   regex-color regex-color
-		piper
-
-	range can also be created by inserting code in stdin that needs to be matches by 
-	subsequent reges
-		s/(?<=.{10})/code/
-		new regex are is: (r1|r2|r3).*code
-
-
-
-color from LS_COLOR
-
-aliases
-	for regex, color, or regex-color
-
-fix bug in example file in this directory
-
-add tests to distro
-
-regex mode
-	free, regexes are reused
-	sequential r2 matches only if r1 matches, ..
-	number of time a regex can be used in the line
-		1:regex, can only color once
-	multi color per regex, aka normal perl regext
-		/r1 .. r2 .. r3/ c1,c2,c3
-
-
-
-
+goals
+	color goes a long way to make data easier to read.
 	
+	primary goal is to color the input, and secondary goal is to make simple tranformation
+	without to having to call another utility (eg: expand tab to space)
+
+	why
+		I needed to color some of the fields of requirement documents.
+
+	using other people's work
+		to not re-invent the wheel I tried colout (https://github.com/nojhan/colout)
+		I did not continue using it for the reasons below but it is open source; many thanks to the author.
+	
+	syntax
+		I don't like the way colout defined fields and the colors are given.
+
+		Other tools forces one to create files which define fields and color; I prefer working
+		on the command line, it allows tweaking the command faster. As much as possible of what 
+		is possible in a file is also possible on the command line. 
+	
+	speed test 
+		load 601 perl files, verified data, mangle data, colorize, show in fzf
+		
+		simple perl colorizer: 310 ms
+		colout:                926 ms
+		
+		the 600 ms difference have me looking at the counter increment, without I only see a flicker
+
+	see also
+		grc, h, ...
+
+examples of command that could use some colors
+	ls -l
+		in a directory with many files, big chunk of white text on the left side makes it
+		less readable
+
+		but even when used in a directory with a few entries, the output, I believe, could
+		be made more readable and more informative. This varies from person to person so it
+		needs to be tweaked for each person's needs
+
+		total 20K
+		drwxrwxr-x 2 nadim nadim 4.0K Nov  7 11:48 t
+		-rwxrwxr-x 1 nadim nadim 4.4K Oct 12 13:41 piper
+		-rw-rw-r-- 1 nadim nadim  12K Nov  7 11:42 piper.txt
+		
+		ls will use LS_COLORS so the file names will be colorized, I want to keep that. Many
+		other utilities that display file names could use LS_COLORS but unfortunately don't.
+
+		the header and each line displays a size; I want the size to be displayed in a 
+		different color depending on the size, big files should be made more obvious
+
+		the type of the file, particularly if it is a link
+
+		I want the executable bit display to be contrasted with the rw bits, if set and not a 
+		directory. if it is a directory and not set, then I want to see it highlited too.
+
+		the ownership should be displayed in a discreet color if it is mine, blue if it is root
+		owned, yellow if someone else owns it
+
+		the date in a discreet color, maybe very old files should be hilighted
+
+piper 
+	the first regexp matches, not the longest matching regexp
+		echo '1234567890' | piper ^123 {ABCDEF} ^12345 XXXXX
+			{ABCDEF}4567890
+
+	focus on the possibility to quickly and efficiently create coloring on the command line
+		if it takes little time to do it, it will be done (maybe ...)
+
+	simple coloring on the command line
+
+	advanced coloring on the command line with the help of
+		configuration files
+			reuse coloring components easily on the command line
+
+		scoped matches
+			combine components to create new componenets
+
+	complex coloring with the module's functions 
+		evaluate code
+			perl
+			any executable
+
+		API
+			add_color_alias
+			add_match_action
+			match
+			parse_command_line
+			...
+
+	has a library of helper functions
+		decolorize
+		compute uncolorized length
+		expand tabs
+		LS_COLORS
+		ANSI colors
+
+	has temporary variables/functions available for matches to save information
+		push_line / pop_line
+			to do multiline coloring
+
+		set_variable / get_variable
+			to save state between matches
+
+	testing
+		access to parsed data
+		access to internal data after replacement
+		...
+
+	parses command line arguments that are easy for the user to input
+		command line is parsed for 
+			comments
+			options
+			aliases
+			commands
+		
+	parsing
+		simple, Bash compatible (not using bash special characters)
+			
+		Bash IFS is redefined to '' and "set - f" is executed to stop bash manipulating the command line
+			commands can contain spaces and *, we parse the line ourselves to limit the amount
+			of quoting the user must do
+	
+			is it possible to do that in a middle of a pipe line?
+				command | piper_with_IFS_set | command
+				
+			alternatively, the command line is wrapped in single quotes
+
+	separators, one to be decided as the canonical format 
+		free-form
+			^d red ^t blue ^x yellow
+			
+			need to discriminate name and options
+				option list separator is ':' or ','
+					
+				option list must contain at least one ':' separator
+
+				most options have short names
+
+				name is an option
+					does not match predefined options
+					matches [:alpha:][:alnum:]+
+
+				options can be mixed
+					some options do not mix
+						error generated and explanation provided
+
+					recommendation is to have the name, or skip, first
+
+				# when a regexp looks like an option
+					name: color # name: is a regexp that looks like an option
+
+					any_option: name: color
+					nop: name: red
+					:    name: red
+					+    name: red
+					-    name: red
+					@    name: red
+
+options
+	--load-piper-file | -f file_name
+	--load-perl-file | -p file_name
+	--load-display-information 
+
+	--debug-parse # display how command is parsed (compile time). 
+	--debug-output # display debug information a match is used (run time)
+	--debug #start debugger
+	--debug-breakpoint 'name conditions'
+
+	-D var=value # define an environment variable
+
+	--bash-generate-completion
+		options
+		modes colors
+		predefined matches found in .rc
+
+comment
+	# comment
+	# 'comment with multiple words'
+
+command format
+	match-color actions have no names
+		anything with a name is a definition to be used later
+		
+	user defined name 
+		[:alpha:][:alnum:]+?
+
+		used to define aliases, colors, match, ... to be reused
+		
+		the same name can be used multiple times when defining a match
+			matching will be done using the list of matches
+				a match is done when one match matches 
+
+	match
+		perl regexp or alias
+		
+		how do we differentiate?
+			single word that is an alias
+				word color 
+				
+				will match using the 'word' match if it was defined; otherwise the 
+					string 'word will be matched; -debug-definition can help
+
+			option 'regexp' forces the match to be regexp
+				regexp: word color
+
+				will match string 'word' even if a 'word' match was defined
+		
+		options can be passed to perl regexp 
+			as part of the regexp 
+				nop:  ?msi:(abc) color
+
+			option 'x' requires the regexp to be quoted if there are space  	
+				nop:  '?x:[a b c]' color
+
+			default options can be defined in .rc file
+				perl_regexp_options='?x:'  
+
+		regexp mode
+			non consuming / munge
+				matches
+				action is run (which means input can be changed)
+				next match re-start at the same point
+
+				same line can be processed multiple times
+					remove colors
+					shorten line
+					expand tabs
+			
+				munge:global 'abc' 'cba'
+				munge:eval   '^(.*)$' 'perl_code($1)'
+
+			multi color per regexp
+				interpolate: '(r1)(r2)(r3)' 'red,$1,,yellow,$2,,blue,$3,red'
+
+			scoped
+				^d red   ^t blue   ^x yellow 
+				^d red : ^t blue : ^x yellow  # ':' is optional 
+
+				using scoped matches
+					mode: d red 
+					mode: t blue
+					mode: - yellow
+
+					scoped: ^. mode
+
+			match	time
+				g global
+				0
+				1
+				range
+					1-3, minimum one time, max 3 times
+
+				count is attached to mathc-color
+					1 being default
+					0 is equivalent to skip:
+
+				example with scoped matches:
+					rw:        ^[-rw]{2}  color 
+					execute:   -          color
+					execute:   x          red 
+
+					scoped:3   .{3}       rw,execute
+
+	action
+		no option:
+			TODO: copy definition from old piper blocks 
+			color,non-interpolated-replacement,end-color
+				empty replacement consumes input
+				empty color,replacement,color deletes input
+
+			,,,
+			,replacement
+			,,end-color
+			color 
+			color,,end-color
+			color,replacement
+			color,replacement,end-color
+
+			if a single word is provided
+				color if it is color
+				string 
+
+		interpolate
+			color,interpolated-replacement-string,end-color
+
+			interpolate: match red,the_$1_match,yellow
+			i: '(...)' 'red,the_$1_match,yellow'
+			i: '(...)(...)' 'red,the_$1_and_$2_match,yellow'
+
+			when single argument is provided
+				no colors given
+				interpolate
+
+		eval
+			perl code, result is the replacement
+			bash code, use backticks
+		
+			whole line can passed to function
+				e: '(^.*$)' 'function $1'
+				
+			piper commands
+				one word command
+
+				user can define piper commands
+					commands are perl subs. Piper checks the symbol table for subs
+					named as the command and does the boilerplate work
+
+					calling other executables is done via system in the perl sub
+					
+				example
+					# define a translator
+					uk:e-m,m  '/\w+/ && not_uk' to_uk
+					
+					# later on the command line
+					piper uk : word red
+
+				pre-defined commands
+					delete line contents
+					upper-lowercase
+					save current color
+					multiline match
+						save match to buffer
+							match can be whole lines, including \n
+
+			how do we color?
+				replacement returns a  list of 3-tuples ([color, replacement, color], ...)
+
+				e: match 'red, perl($1), yellow'
+
+				e: match 'perl("red", $1, "yellow")'
+
+				e: match 'red, `bash $1`, yellow'
+
+				what if the code contains ',' separator?
+					first and last comma are always for piper command
+					add commas till the right result is reached
+
+			how does code return a scoped match?
+				returns what a would have been written in by the user, it is
+				the 'scoped' option that makes the match a scoped one.
+
+				e:s match 'perl_code()'
+
+	all options
+		provide table of icompatible options
+		provide table of short and long names (from code)
+		
+		nop: | : | + | - | @: # does nothing, used when the match looks like a name or option
+		nop: abc red
+
+		name: # names the match-replacement-options
+		name: name is anything that is not an option name
+		name:              abc red
+		name:option,option abc red
+		name:option:option abc red
+
+		skip: # removes the match-replacement-options, comment it away
+		skip:name: abc red
+		skip:name:option,option abc red
+
+		alias: # makes a name equivalent to another name
+		alias: name_to_alias alias
+
+		remove: # removes a name 
+		remove: name why
+
+		regexp: # do not lookup the match, match is a regexp
+		regexp:  name red 
+
+		TODO: defining a regexp that can be reused
+		def_regexp: name regexp
+		 
+
+		#define colors 
+		color:  my_color red 
+		cyclic: Xmas red,green,yellow
+		stack:  Xmas red,green,yellow
+		group:  Xmas red,green,yellow
+
+		interpolate: #	color, sting_to_interpolate, color (multiple time)
+		interpolate3: '(abc)' 'my_color,"$1$1",reset' 
+
+		eval: # the replacement consists of one part
+		eval: abc 'perl_code()'
+
+		eval3: # the replacement and returned values consists of three parts (multiple time)
+			# colors passed by user have higher priority than those returned by code
+		eval3: match 'color, code, color [, color, code, color]' 
+			 
+		# bash and other executables
+		eval: abc "`executable options`" 
+
+		eval_match:
+		eval-match: '$. % 2' blue 
+			passed 
+				current line
+				remainder of line
+				other information
+
+			returns a code and possible extra elements
+				fail
+
+				succeed, regexp to apply
+					amount of input consumed
+				
+				succeed, string to add to the output
+					continue processing or not
+					amount of input consumed
+
+
+		eval-input: '^.*$' lc 
+
+		0-n: # how many times the  match-color is considered, default is 1
+		1-3: abc stack_color
+		
+		g | global: # match-color is always considered
+		g: abc red
+
+		scoped
+		scoped: abc 'a, b, c' 
+
+			scoped via eval
+				eval: abc 'piper("name) && piper("name2")'
+
+		debug-parse: abc red  
+			display how command is parsed (compile time). 
+			
+		debug-output: abc red  
+			display debug information when match is used (run time)
+				directly
+				as a scoped match
+
+		debug: abc red
+			start debugger when used
+
+		debug-breakpoint: name conditions
+			stop, in the debugger when match is used and condition is true
+
+definition files
+	files only contain definitions
+		match-replacement are reported as errors
+
+	two types of files
+		-f piper files that can import perl files
+			# piper file 
+			name:option,option match replacement
+			name:option,option match replacement
+			name:option,option match replacement
+
+			-f file-name 
+			-p file-name 
+
+		-p perl files that know about piper
+			multiline definition possible via API
+
+			# perl file
+			piper_parse <<'EOD' ;
+
+			name:option,option match replacement
+			name:option,option match replacement
+			name:option,option match replacement
+			name:option,option match replacement
+
+			EOD
+			
+			# configuration that can be done in the .rc file
+
+			piper_register
+				(
+				"option, option, ..."
+				qr/?x:
+					multi
+					line
+					regexp # with explanations
+					/,
+				&replacement:sub, # or string
+				) ;
+
+			piper_import "file-name" ;
+			do $file ;
+			use module ;
+
+			sub function_name {}
+
+	configuration file
+		~/.config/piper.rc loaded automatically
+
+colors
+	make current_color available so matches can use it
+		eg: 'regexp' 'inverse current_color'
+		eg: 'regexp' 'bold  current_color'
+
+		current color can come from old ansi code or from color in the replacement
+		
+		or we can make reset the last color detected
+			/match/color/
+			
+	background and foreground color extracted separately
+		allows changin only one of them selectively
+
+		/match/blue,, yellow restore_on_background/ /abc/restore/
+
+	color stack
+		regexp can pop color from stack
+		"obvious" color when stack is empty
+
+		there is a default stack, empty
+			default//red,green,blue/stack
+
+		-f C_definition # 'load default color stack' /yyy/pop/ /zzz/pop/
+
+		named color stacks are poped like this
+			my//red,green,blue/stack
+			-f ... /yyy/pop_my/ /zzz/pop_my/
+			
+	color cycles
+		like a stack but reset to the top after hitting bottom
+
+		there is a default cycle, empty
+			default//red,green,blue/cycle
+
+		-f C_definition # 'load default color cycle' /yyy/popc/ /zzz/popc/
+
+	color group definition	
+		name//color, color, color/group
+			gets "compiled" immediately
+		/yyy/name_1/ /zzz/name_2/
+
+	color aliases
+		use color names rather than RGB
+		warning1//rgb411/alias
+		warning3//warning1/alias
+
+	color from LS_COLOR
+		set of colors named 
+			.ext
+			default types (normal, file, directory, ...)
+
+		/.+(\.[^\s]+)/LSC($1)/eval
+
+		also function in library
+
+	16M color mode
+	256 color mode
+	16 color mode
+		find closest color
+		color can have definition in each mmode
+			warning  16 => yellow, 256 => rgb045, 16M => [25, 240, 250]
+	
+	colors changing for lines
+		a regexp has a color at a specif line, another at another line
+			can be done with two regexps, simpler clearer, but more verbose
+
+		example of how to color one line in a color and the other in another color:
+			/'^.*$' if ($. % 2) /on_blue/eval_match
+			/'^.*$' if !($. % 2) /on_red/eval_match
+
+			? how do we match a regexp and a line and something external
+				/$. % 2 && m{regexp}/on_red/eval_match
+
+				/function()/on_red/eval_match
+					return true/false
+
+				/`bash`/on_red/eval_match
+					TBD
+					return true/false and match regexp
+
+chunks 
+	vertical and horizontal "cuts"
+	
+	chunk are typed 
+		this allows the processing "unit" to lookup what processing is
+		to be applied
+		
+	vertical cut
+		skip lines
+			/^.*$//  # nothing more to match
+
+		multi line
+			/start-regexp/push-line/e /!end-regexp/push-lines/e /end-regexp/pop-lines/e /match/color/ 
+			/start-regexp/push-line/e /end-regexp/pop-lines/e /buffer has content/push_line/e /match/color/
+
+	horizontal cut
+		match defines range, scoped match-color do the processing
+
+processing units
+	communication through socket, makes distribution possible
+		we need a system to create processing units and report their
+		socket back, it also synchs the color files if remote
+
+	complete chunk is send to processing unit (batch mode) and complete
+	chunks are send back
+
+	parallel processing
+		gnu parallel
+			works fine for large amount of input and little configuration
+			
+			worth it from around 200_000 lines
+
+			wrapper around parallel is much easier than implementing parallelization
+			and synchronization
+
+		rust parallel
+			has no --pipe 
+				work around makes it slow, bug reported
+				quoting must be manual and is contra intuitive
+
+		own  parallelization vs gnu parallel
+			only a few processes to start that are reused
+			fork can be done after configuration and match have been compiled
+				one time configuration for all processors
+
+			synchronization can be simplistic round robin 
+				feed the processors 1 to 4 (if 4 processors)
+				wait for p1 
+				print result
+				feed p1
+				next processor
+
+debug 
+	better error message when tuple is malformed
+		display regexp, replacement, color definitions, definition location, processing unit, scheduling data
+
+	display matches
+		with and without color
+		what regexp matched, as it looked on the command line
+	
+	run in real debugger
+		piper function named so that they are self explaining in debugger
+
+	=> if all defintions are perl code, or something interpreted by perl
+		we can run them and get error reporting from perl
+
+data already containg colors
+	problem occurs only when match regexp can match an ansi code
+		having to say regexp '12' that is not part of an ansi code is strenuous at best
+
+	Do we match accross color boundaries?
+		yes, we match string not colors so old ansi codes must be removed
+
+	default color handling
+		none
+			most input we have is without ansi code
+			faster to not make a pass to remove color codes	if not needed
+			user knows best when to remove or keep the colors
+		
+	remove colors
+		option to piper
+			--remove-color
+		
+	keep colors
+		option to piper
+			--keep-color
+
+		colors are removed from input but the color and its position is stored
+			colors are reinserted after matching
+
+		must work with multi line strings (pushed lines, pop) which may be
+		distributed to multiple scoped matches
+
+examples
+	defining the default color, background and foreground
+		/^/red,,on_yellow/
+	
+	ls -l, '...' used to depict a color definition
+		# type
+		/^l/.../
+		/^d/LS_COLOR_DIRECTORY/
+		/^-/.../
+		
+		# ownership
+		rw/^[-rw]{2}/.../ 
+		
+		execute/-/.../
+		execute/x/red/
+
+		rwx//rw, execute/
+		/.{3}/rwx/s,3
+		
+		# owner
+		/$ENV{USER}.'\s+[_a-zA-Z]+'/discreet/eval_match 
+		
+		# size free-form, default option x
+		'[0-9.]+          G'      on_red
+		'[0-9.]+          M'      red
+		'[5-9]   [0-9]{2} K \s'   yellow
+		'[0-9.]+          K \s'   discreet
+  		
+		# size
+		/[0-9.]+G/on_red/
+		/[0-9.]+M/red/
+		/[5-9][0-9]{2}K\s/yellow/
+		/[0-9.]+K\s/discreet/
+		
+		# date	
+		/.+?((\d\d:\d\d)|([0-9]{4}))/discreet/
+
+
+
