@@ -98,6 +98,9 @@ piper - a command line utility to colorize a stream of text
 			--load-piper-file | -f file_name
 			--load-perl-file | -p file_name
 			--load-verbose 
+			--include-path
+
+			--no_rc
 
 			--save-pipeline name
 			--load-pipeline name
@@ -143,6 +146,7 @@ piper - a command line utility to colorize a stream of text
 
 					-f file-name 
 					-p file-name 
+					--other-option
 
 				-p perl files that know about piper
 					multiline definition possible via API
@@ -157,6 +161,8 @@ piper - a command line utility to colorize a stream of text
 
 					EOD
 					
+					piper_set_option(...) ;
+
 					piper_register
 						(
 						"option, option, ..."
@@ -172,14 +178,13 @@ piper - a command line utility to colorize a stream of text
 					do $file ;
 					use module ;
 
-					sub function_name {}
+					sub function_name {} # available as match or color on the command line
 
 			configuration file
 				loaded automatically
 					--no_rc option
 
 				~/.config/piper.rc
-				~/.config/piper.pl.rc
 
 	API
 		has a library of helper functions
@@ -197,7 +202,6 @@ piper - a command line utility to colorize a stream of text
 				to save state between matches
 
 	parallel processing
-		works when there are no multi line matches
 
 		gnu parallel
 			works fine for large amount of input and little configuration
@@ -207,10 +211,14 @@ piper - a command line utility to colorize a stream of text
 			wrapper around parallel is much easier than implementing parallelization
 			and synchronization
 
+			works when there are no multi line matches
+
 		rust parallel
 			has --pipe and --quote in latest versions
 
 			slow, bug reported
+
+			works when there are no multi line matches
 
 		built in parallelization
 			only a few processes to start as they can be reused
@@ -225,16 +233,19 @@ piper - a command line utility to colorize a stream of text
 				feed p1
 				next processor
 
+			works when there are multi line matches
+
 	vertical and horizontal "chunks"
 		
 		vertical chunk
 			skip lines
-				munge: '^.*$' ''  # nothing more to match
+				'^.*$' ',,'  # nothing more to match
+				'^.*$' skip  # nothing more to match
 
 			multi line
 				# collect lines
 				eval: start-regexp push-line
-				eval: not_end_regexp push_line  alt eval: has_buffer push_line
+				eval: not_end_regexp push_line  alternatively eval: has_buffer push_line
 				eval:munge  end-regexp pop-lines
 
 				# colorize collected lines
@@ -273,7 +284,7 @@ command format
 		# comment
 		# 'comment with multiple words'
 
-	match-color commands have no names
+	match-replacement commands have no names
 		anything with a name is a definition to be used later
 		
 	user defined name 
@@ -315,7 +326,7 @@ command format
 				nop:  '?msi:(abc)' color
 
 		regexp mode
-			non consuming / munge
+			non consuming aka munge
 				matches
 				action is run (which means input can be changed)
 				next match re-start at the same point
@@ -360,24 +371,38 @@ command format
 
 					scoped:3   .{3}       rw,execute
 
-	action
+	replacement
 		no option:
-			TODO: copy definition from old piper blocks 
-			color,non-interpolated-replacement,end-color
-				empty replacement consumes input
-				empty color,replacement,color deletes input
+			color|string
+				if a single string is provided
+					color if it is color
+					string
 
+
+			[color][,[replacement][,[end-color]]]
+
+			red,text
+			xred,text,green
+			red,text,xgreen
+			xred,text,xgreen
+			red,text,green
+			red,text,green
+			,text
+			,text,
+			,text
+			text,
+			,
+			,,
 			,,,
-			,replacement
-			,,end-color
-			color 
-			color,,end-color
-			color,replacement
-			color,replacement,end-color
+			,red,
+			,,red
+			,red
+			red,,green
+			red,,reset
+			red
+			red,,
+			,,green
 
-			if a single word is provided
-				color if it is color
-				string 
 
 		interpolate
 			color,interpolated-replacement-string,end-color
@@ -467,7 +492,7 @@ command format
 				nop: name: red
 
 		options list
-			provide table of icompatible options
+			provide table of incompatible options
 			provide table of short and long names (from code)
 			
 			nop: | ':' : # does nothing, used when the match looks like a name or option
