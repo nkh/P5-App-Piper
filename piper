@@ -24,9 +24,10 @@ Usage:	$> command | piper perl_regex replacement|color|block ...
 
 	regex
 		A perl5 regex, or a simple string to match
+		line matchin regex '(?#|start_line,end_line)regex'
 
 	replacement
-		A text to replace the match with, if the replvement is a color,
+		A text to replace the match with, if the replacement is a color,
 		the text is not replace but colorized. See color and block.
 	
 	color
@@ -132,6 +133,7 @@ if ($debug_definitions)
 	warn "$r\n\n" ;
 	warn join("\n", @definitions), "\n" ;
 	}
+
 sub r
 {
 my $i = $global_match ? chop $_[0] : $_[0] ;
@@ -141,18 +143,35 @@ warn sprintf "%-40s $definitions[$i]\n", '<'.$_[1].'>' if $debug ;
 $rp[$i][0] . ($rp[$i][1] // $_[1]) . $rp[$i][2] 
 }
 
+$_='' ;
+
 if ($global_match)
 	{
-	do {s/($r)/r(%+)/gen ; print } for(<>) ;
+	do { s/($r)/r(%+)/gen ; print } while(<>) ;
 	}
 else
 	{
-	for(<>)
+	my $line = 0 ;	
+
+	while(<>)
 		{
+		$line++;
 		my $colored = '' ;
 
 		for (my $i = 0 ; $i < @rx ; $i++)
 			{
+			# handle line selection, cache this test
+			if ($rx[$i] =~ /\(  \?  \#  \|  (?<start>\d+)? \,?  (?<end>\d+)? \)/x)
+				{
+				print "line: $line, regex:$rx[$i], start: " . ($+{start} || '') . ", end: " . ($+{end} || '') . "\n" if $debug ;
+
+				if (defined $+{start} || defined $+{end})
+					{
+					next if (defined $+{start} && $line < $+{start}) ;
+					next if (defined $+{end} && $line > $+{end}) ;
+					}
+				}
+
 			while(m/\G(.*?)($rx[$i])/gc) {$colored .= $1 . r($i, $2) ; last} 
 			}
 
@@ -162,5 +181,4 @@ else
 		print $colored . "\n" ;
 		}
 	}
-
 

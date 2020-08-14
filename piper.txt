@@ -1,5 +1,5 @@
 
-piper - a command line utility to colorize a stream of text
+piper - a command line utility to colorize and modify a stream of text
 
 	introduction
 
@@ -32,16 +32,18 @@ piper - a command line utility to colorize a stream of text
 		make simple transformation without to having to call another utility
 			eg: expand tab to space, uppercase words
 
+			piping is more efficient as data gets processed in parallel but piper
+			can be parallelized
+
 		quickly and efficiently create coloring on the command line
-			if it takes little time to do it, it will be done (maybe ...)
 
 	rational 
 		color makes data easier to read.
 	
 	matching order
 		first regexp matches, not the longest matching regexp
-			echo '1234567890' | piper ^123 {ABCDEF} ^12345 XXXXX
-				{ABCDEF}4567890
+			echo '1234567890' | piper ^123 shortest ^12345 longest
+				shortest4567890
 
 	command context
 	
@@ -54,6 +56,14 @@ piper - a command line utility to colorize a stream of text
 
 			scoped matches
 				combine coloring components to create new components
+
+				use 'scoped' instead for regex definition
+				builds the regex from definitions
+				definitions can be declared after them being used
+
+				scoped matches can be made in a user defined range or on the whole line input
+					scoped: option
+					scoped  regex-constructor
 
 		complex coloring with the module's functions 
 			evaluate code
@@ -75,11 +85,13 @@ piper - a command line utility to colorize a stream of text
 			commands
 
 		command format
-			minimize typing
+			minimize typing of match-replacement
 			has non verbose mode for for power users
 
-		color names
-			internal list of colors can be used directly on the command line
+		symboles
+			list of colors can be used directly
+			user defined color names can be used directly
+			perl subs can be used directly
 						
 		command completion
 			colors
@@ -97,33 +109,36 @@ piper - a command line utility to colorize a stream of text
 		options
 			--load-piper-file | -f file_name
 			--load-perl-file | -p file_name
-			--load-verbose 
 			--include-path
 
 			--no_rc
 
 			--save-pipeline name
 			--load-pipeline name
-			--save-pipeline-as-function name # creates a function that can be called, IE piper_color_du
+			--save-pipeline-as-function name # creates a function that can be called, eg: piper_color_du
 
 			--remove-color
 			--keep-color
 
 			-regex-space-relevant # default space is not relevant
 
-			--debug-parse # display how command is parsed (compile time). show which parts are regexp, string, aliases 
-			--debug-output # display debug information a match is used (run time)
-			--debug #start debugger
-			--debug-breakpoint 'name conditions'
+			--debug-parsing # display how command is parsed 
+			--debug-load # display which files are loaded by what
+			--debug-matching # display how a line is matched
+			--debug-start-debugger
+			--debug-breakpoint name
+				stop when named match matches
 
-			-D var=value # define an environment variable
+			-D var=value
+				value can be used to run a piper file differently
+				define an environment variable
 
 			--bash-generate-completion
 				options
 				modes colors
 				predefined matches found in .rc
 
-		definition files
+		piper files
 			contain
 				definitions
 
@@ -138,8 +153,8 @@ piper - a command line utility to colorize a stream of text
 					sub, color, regexp
 
 			two types of files
-				-f piper files that can import perl files
-					# piper file 
+				-f piper commands file, can import perl files
+
 					name:option,option match replacement
 					name:option,option match replacement
 					name:option,option match replacement
@@ -148,11 +163,15 @@ piper - a command line utility to colorize a stream of text
 					-p file-name 
 					--other-option
 
-				-p perl files that know about piper
-					multiline definition possible via API
+				-p perl file, can import piper command file
 
-					# perl file
+					piper_set_option(...) ;
+
+					piper_load 'file_name' ;
+
 					piper_parse <<'EOD' ;
+
+					--option --option
 
 					name:option,option match replacement
 					name:option,option match replacement
@@ -161,11 +180,9 @@ piper - a command line utility to colorize a stream of text
 
 					EOD
 					
-					piper_set_option(...) ;
-
 					piper_register
 						(
-						"option, option, ..."
+						[option, option, ...],
 						qr/?x:
 							multi
 							line
@@ -191,7 +208,7 @@ piper - a command line utility to colorize a stream of text
 			de-colorize
 			compute un-colorized length
 			expand tabs
-			LS_COLORS
+			LS_COLORS, including types
 			ANSI colors
 
 		has temporary variables/functions available for matches to save information
@@ -256,12 +273,12 @@ piper - a command line utility to colorize a stream of text
 			scoped: 'match range' process_range
 
 	debugging  
-		better error message when tuple is malformed
+		error message when tuple is malformed
 			display regexp, replacement, color definitions, definition location, processing unit, scheduling data
 
 		display matches
 			with and without color
-			what regexp matched, as it looked on the command line
+			what regexp matched, as it looked on the command line, and sub definitions in a tree fashion
 		
 		run in real debugger
 			piper function named so that they are self explaining in debugger
@@ -303,7 +320,7 @@ command format
 			single word that is an alias or a sub
 				eg: word color 
 				
-				--debug-parse displayes how a command is parsed 
+				--debug-parsing displays how a command is parsed 
 
 			option 'match-no-lookup' forces the match to be a regexp
 				match-no-lookup: word color
@@ -341,17 +358,18 @@ command format
 
 			multi color per regexp
 				interpolate: '(r1)(r2)(r3)' 'red,$1,,yellow,$2,,blue,$3,red'
+				/ (capture) (.*) (end) / 'color,, ,,, color,,' 
 
 			scoped
 				^d red   ^t blue   ^x yellow 
 				^d red : ^t blue : ^x yellow  # ':' is optional 
 
 				using scoped matches
-					mode: d red 
-					mode: t blue
-					mode: - yellow
+					scoped mode
 
-					scoped: ^. mode
+					mode: ^d red 
+					mode: ^t blue
+					mode: ^- yellow
 
 			match time
 				g global
@@ -369,7 +387,7 @@ command format
 					execute:   -          color
 					execute:   x          red 
 
-					scoped:3   .{3}       rw,execute
+					@:3 scoped rw,execute
 
 	replacement
 		no option:
@@ -545,6 +563,8 @@ command format
 
 			eval_match:
 			eval-match: '$. % 2' blue 
+				eval-match is compile time only
+
 				passed 
 					current line
 					remainder of line
@@ -730,29 +750,27 @@ examples
 		the date in a discreet color, maybe very old files should be hilighted
 
 		Piper coloring
-			# type
-			^l color
-			^d LS_COLORS_DIRECTORY # pre defined
-			^- color
+			type: ^l color
+			type: ^d LS_COLORS_DIRECTORY # pre defined
+			type: ^- color
 			
-			# permissions 
 			rw: '^[-rw]{2}' color 
-			
 			execute: - color
 			execute: x red
 
-			rwx:scoped,3 '.{3}' rw,execute
+			rwx:3 scoped rw,execute
 			
-			# owner
-			eval-match '$ENV{USER}.'\s+[[:alnum:]]+' discreet_color 
+			owner: eval-match '$ENV{USER}.'\s+[[:alnum:]]+' discreet_color 
 			
-			# size free-form
-			'[0-9.]+          G'      on_red
-			'[0-9.]+          M'      red
-			'[5-9]   [0-9]{2} K \s'   yellow
-			'[0-9.]+          K \s'   discreet
+			size: '[0-9.]+          G'      on_red
+			size: '[0-9.]+          M'      red
+			size: '[5-9]   [0-9]{2} K \s'   yellow
+			size: '[0-9.]+          K \s'   discreet
 			
-			# date	
-			'.+?((\d\d:\d\d)|([0-9]{4}))' discreet_color
+			date: '.+?((\d\d:\d\d)|([0-9]{4}))' discreet_color
+
+			ls_line: scoped type,rwx,owner,size,date,file_name
+
+			@ls_line # add to match-replacement to run
 
 
