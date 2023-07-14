@@ -1,11 +1,11 @@
-colors=(yellow green red blue magenta cyan)
+colors=('black on_rgb530' 'rgb555 on_rgb010' 'black on_blue' 'black on_magenta' 'black on_cyan')
 
 piper_args=
 
 color_index=0
 for w in "$@"
 	do
-		piper_args+=" '$w' ${colors[color_index]}"
+		piper_args+=" \"$w\" '${colors[color_index]}'"
 		((color_index++)) ; ((color_index >= ${#colors[@]})) && color_index=0
 	done 
 
