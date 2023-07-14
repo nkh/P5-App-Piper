@@ -1,0 +1,14 @@
+colors=(yellow green red blue magenta cyan)
+
+piper_args=
+
+color_index=0
+for w in "$@"
+	do
+		piper_args+=" '$w' ${colors[color_index]}"
+		((color_index++)) ; ((color_index >= ${#colors[@]})) && color_index=0
+	done 
+
+eval "cat | piper $piper_args"
+
+

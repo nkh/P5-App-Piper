@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 
-use strict ; 
-use warnings ; 
+use strict ; use warnings ; 
 use Term::ANSIColor qw(color colorvalid) ;
 
 # todo:
@@ -12,11 +11,13 @@ use Term::ANSIColor qw(color colorvalid) ;
 print <> and exit(0) unless @ARGV ;
 
 my $global_match = (grep {/^--global$/} @ARGV);
+my $once = (grep {/^--once$/} @ARGV);
 my $debug = (grep {/^--debug$/} @ARGV);
 my $debug_definitions = (grep {/^--debug_definitions$/} @ARGV);
 
 @ARGV = (grep {!/^--debug.*$/} @ARGV);
 @ARGV = (grep {!/^--global*$/} @ARGV);
+@ARGV = (grep {!/^--once*$/} @ARGV);
 
 print <<'EOH' and exit 0 if (grep {/^--help$/} @ARGV) || @ARGV % 2 ;
 Usage:	$> command | piper perl_regex replacement|color|block ...
@@ -47,7 +48,8 @@ Usage:	$> command | piper perl_regex replacement|color|block ...
 
 Options:
 	--help               displays this message
-	--global             do global matching rather than linear
+	--global|g           do global matching rather than linear
+	--once               match_once per line
 	--debug              displays how the color, or block, is parsed
 	--debug_definitions  displays regex and defintions before matching
 
@@ -140,7 +142,17 @@ my $i = $global_match ? chop $_[0] : $_[0] ;
 
 warn sprintf "%-40s $definitions[$i]\n", '<'.$_[1].'>' if $debug ;
 
-$rp[$i][0] . ($rp[$i][1] // $_[1]) . $rp[$i][2] 
+$rp[$i][0] . re($rp[$i][1], $_[1], $_[2]) . $rp[$i][2] 
+}
+
+sub re
+{
+use Data::TreeDumper ;
+my ($replacement, $match) = @_ ;
+
+$replacement = eval "$replacement" if defined $replacement && $replacement =~ s/{}/"$match"/g ;
+
+$replacement // $match
 }
 
 $_='' ;
@@ -152,31 +164,32 @@ if ($global_match)
 else
 	{
 	my $line = 0 ;	
-
+	
 	while(<>)
 		{
 		$line++;
 		my $colored = '' ;
-
+		
 		for (my $i = 0 ; $i < @rx ; $i++)
 			{
 			# handle line selection, cache this test
 			if ($rx[$i] =~ /\(  \?  \#  \|  (?<start>\d+)? \,?  (?<end>\d+)? \)/x)
 				{
 				print "line: $line, regex:$rx[$i], start: " . ($+{start} || '') . ", end: " . ($+{end} || '') . "\n" if $debug ;
-
+				
 				if (defined $+{start} || defined $+{end})
 					{
 					next if (defined $+{start} && $line < $+{start}) ;
 					next if (defined $+{end} && $line > $+{end}) ;
 					}
 				}
-
+			
 			while(m/\G(.*?)($rx[$i])/gc) {$colored .= $1 . r($i, $2) ; last} 
+			$once && $colored ne '' && last ;
 			}
-
+		
 		if(m/\G(.+)/) {$colored .= $1} 
-
+		
 		print if $debug ;
 		print $colored . "\n" ;
 		}
