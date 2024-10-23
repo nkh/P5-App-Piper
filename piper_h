@@ -1,14 +1,20 @@
-colors=('black on_rgb530' 'rgb555 on_rgb010' 'black on_blue' 'black on_magenta' 'black on_cyan')
+#!/bin/bash
+
+colors=('rgb444 on_ansi23' 'rgb444 on_rgb210' 'rgb444 on_rgb100' 'rgb444 on_rgb113' 'rgb444 on_rgb101' 'rgb333 on_ansi20' )
 
 piper_args=
 
 color_index=0
 for w in "$@"
 	do
-		piper_args+=" \"$w\" '${colors[color_index]}'"
-		((color_index++)) ; ((color_index >= ${#colors[@]})) && color_index=0
+		[[ "$w" =~ ⁻g ]] && piper_options+=" $w" ||
+			{
+			piper_args+=" \"$w\" '${colors[color_index]}'"
+			((color_index++)) ; ((color_index >= ${#colors[@]})) && color_index=0
+			}
 	done 
 
-eval "cat | piper $piper_args"
+eval "cat | piper $piper_options $piper_args"
 
+# vim: set ft=bash
 

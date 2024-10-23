@@ -48,7 +48,7 @@ Usage:	$> command | piper perl_regex replacement|color|block ...
 
 Options:
 	--help               displays this message
-	--global|g           do global matching rather than linear
+	--global           do global matching rather than linear
 	--once               match_once per line
 	--debug              displays how the color, or block, is parsed
 	--debug_definitions  displays regex and defintions before matching
@@ -138,7 +138,7 @@ if ($debug_definitions)
 
 sub r
 {
-my $i = $global_match ? chop $_[0] : $_[0] ;
+my $i = $global_match ? substr($_[0],1) : $_[0] ;
 
 warn sprintf "%-40s $definitions[$i]\n", '<'.$_[1].'>' if $debug ;
 
@@ -147,7 +147,6 @@ $rp[$i][0] . re($rp[$i][1], $_[1], $_[2]) . $rp[$i][2]
 
 sub re
 {
-use Data::TreeDumper ;
 my ($replacement, $match) = @_ ;
 
 $replacement = eval "$replacement" if defined $replacement && $replacement =~ s/{}/"$match"/g ;
@@ -163,7 +162,7 @@ if ($global_match)
 	}
 else
 	{
-	my $line = 0 ;	
+	my $line = 0 ;
 	
 	while(<>)
 		{
@@ -177,21 +176,19 @@ else
 				{
 				print "line: $line, regex:$rx[$i], start: " . ($+{start} || '') . ", end: " . ($+{end} || '') . "\n" if $debug ;
 				
-				if (defined $+{start} || defined $+{end})
-					{
-					next if (defined $+{start} && $line < $+{start}) ;
-					next if (defined $+{end} && $line > $+{end}) ;
-					}
+				next if (defined $+{start} && $line < $+{start}) ;
+				next if (defined $+{end} && $line > $+{end}) ;
 				}
 			
 			while(m/\G(.*?)($rx[$i])/gc) {$colored .= $1 . r($i, $2) ; last} 
+			
 			$once && $colored ne '' && last ;
 			}
 		
 		if(m/\G(.+)/) {$colored .= $1} 
 		
 		print if $debug ;
-		print $colored . "\n" ;
+		print $colored, "\n" ;
 		}
 	}
 
