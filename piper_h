@@ -3,11 +3,14 @@
 colors=('rgb444 on_ansi23' 'rgb444 on_rgb210' 'rgb444 on_rgb100' 'rgb444 on_rgb113' 'rgb444 on_rgb101' 'rgb333 on_ansi20' )
 
 piper_args=
-
 color_index=0
+
+[[ "$1" == '-r' ]] && { shift ; color_index=$((color_index + 1 + $RANDOM % 5)) ; }
+[[ "$1" == '-i' ]] && { color_index=$2 ; shift ; shift ; }
+
 for w in "$@"
 	do
-		[[ "$w" =~ ⁻g ]] && piper_options+=" $w" ||
+		[[ "$w" =~ '-g' ]] && piper_options+=" $w" ||
 			{
 			piper_args+=" \"$w\" '${colors[color_index]}'"
 			((color_index++)) ; ((color_index >= ${#colors[@]})) && color_index=0
