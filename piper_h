@@ -1,23 +1,113 @@
 #!/bin/bash
 
-colors=('rgb444 on_ansi23' 'rgb444 on_rgb210' 'rgb444 on_rgb100' 'rgb444 on_rgb113' 'rgb444 on_rgb101' 'rgb333 on_ansi20' )
+xcolors=('rgb444 on_ansi23' 'rgb444 on_rgb210' 'rgb444 on_rgb100' 'rgb444 on_rgb113' 'rgb444 on_rgb101' 'rgb333 on_ansi20' )
+
+colors+=(
+	'rgb444 on_ansi23' 
+	'rgb444 on_ansi130' 
+	'rgb444 on_ansi127' 
+	'rgb444 on_ansi27'
+	'rgb444 on_ansi29' 
+	'rgb444 on_rgb124' 
+	'rgb444 on_ansi124' 
+	'rgb444 on_ansi58' 
+	'rgb444 on_ansi92' 
+	'rgb444 on_ansi31' 
+	'rgb444 on_ansi88' 
+	'rgb444 on_ansi55' 
+	'rgb333 on_ansi20') 
+
+colors+=(
+	'rgb444 on_ansi27' 
+	'rgb444 on_ansi30' 
+	'rgb444 on_ansi130' 
+	'rgb444 on_ansi166' 
+	'rgb444 on_ansi124' 
+	'rgb444 on_ansi92' 
+	'rgb444 on_ansi23' 
+	'rgb444 on_ansi58' 
+	'rgb444 on_ansi55' 
+	'rgb444 on_ansi31' 
+	'rgb444 on_ansi88' 
+	'rgb444 on_ansi94' 
+	'rgb444 on_ansi66' 
+	'rgb444 on_rgb113' 
+	'rgb444 on_rgb101' 
+	'rgb333 on_ansi20')
+
+colors+=(
+	'rgb444 on_ansi130' 
+	'rgb444 on_ansi27' 
+	'rgb444 on_ansi127' 
+	'rgb444 on_ansi23' 
+	'rgb444 on_ansi166' 
+	'rgb444 on_ansi60' 
+	'rgb444 on_rgb210' 
+	'rgb444 on_ansi92' 
+	'rgb444 on_ansi30' 
+	'rgb444 on_ansi238' 
+	'rgb444 on_ansi18' 
+	'rgb444 on_ansi52' 
+	'rgb444 on_rgb113' 
+	'rgb333 on_ansi20' 
+	'rgb444 on_ansi137' 
+	'rgb444 on_rgb101')
+
+xcolors+=(
+	'rgb444 on_ansi23' 
+	'rgb444 on_ansi130' 
+	'rgb444 on_rgb210' 
+	'rgb444 on_ansi127' 
+	'rgb444 on_rgb124' 
+	'rgb444 on_ansi58' 
+	'rgb444 on_ansi124' 
+	'rgb444 on_ansi92' 
+	'rgb444 on_ansi59' 
+	'rgb444 on_ansi88' 
+	'rgb444 on_ansi55' 
+	'rgb444 on_ansi31' 
+	'rgb444 on_rgb101' 
+	'rgb444 on_ansi27' 
+	'rgb444 on_ansi30' 
+	'rgb444 on_ansi18' 
+	'rgb444 on_ansi52' 
+	'rgb444 on_ansi92' 
+	'rgb444 on_ansi124' 
+	'rgb444 on_ansi88' 
+	'rgb444 on_ansi31' 
+	'rgb444 on_ansi55' 
+	'rgb444 on_rgb113' 
+	'rgb444 on_ansi127' 
+	'rgb444 on_ansi58' 
+	'rgb444 on_rgb210' 
+	'rgb444 on_ansi23')
+
+entries=("$@")
+list_color=
 
 piper_args=
+piper_options=
 color_index=0
+
+[[ "$1" == '-l' ]] && { shift ; list_color='^' ; entries=($(seq 0 ${#colors[@]} | sed 's/$/_test/')) ; }
 
 [[ "$1" == '-r' ]] && { shift ; color_index=$((color_index + 1 + $RANDOM % 5)) ; }
 [[ "$1" == '-i' ]] && { color_index=$2 ; shift ; shift ; }
 
-for w in "$@"
+for w in "${entries[@]}"
 	do
 		[[ "$w" =~ '-g' ]] && piper_options+=" $w" ||
 			{
-			piper_args+=" \"$w\" '${colors[color_index]}'"
+			piper_args+=" \"$list_color$w\" '${colors[color_index]}'"
 			((color_index++)) ; ((color_index >= ${#colors[@]})) && color_index=0
 			}
 	done 
 
-eval "cat | piper $piper_options $piper_args"
+if [[ -n "$list_color" ]] ; then
+	eval "printf "%s\\\\n" "${entries[@]}" | piper $piper_options $piper_args"
+else
+	eval "cat | piper $piper_options $piper_args"
+fi
 
 # vim: set ft=bash
 
