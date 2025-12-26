@@ -1,112 +1,107 @@
 #!/bin/bash
 
-xcolors=('rgb444 on_ansi23' 'rgb444 on_rgb210' 'rgb444 on_rgb100' 'rgb444 on_rgb113' 'rgb444 on_rgb101' 'rgb333 on_ansi20' )
+# ph - Colorize stdin using piper with predefined color schemes
+# Usage: ph [-l] [-r] [-i INDEX] [patterns...]
+#   -l           List colors with test patterns
+#   -r           Start at random color index
+#   -i INDEX     Start at specific color index
+#   patterns     Patterns to colorize (pass -g options directly to piper)
 
-colors+=(
-	'rgb444 on_ansi23' 
-	'rgb444 on_ansi130' 
-	'rgb444 on_ansi127' 
+show_usage()
+	{
+	cat << 'EOF'
+Usage: ph [-l] [-r] [-i INDEX] [patterns...]
+  -l           List colors with test patterns
+  -r           Start at random color index (0-5)
+  -i INDEX     Start at specific color index
+  -h           Show this help
+  patterns     Patterns to colorize (pass -g options directly to piper)
+EOF
+	exit 0
+	}
+
+# Define color palette
+colors=(
+	'rgb444 on_ansi29'
+	'rgb444 on_ansi88'
+	'rgb444 on_ansi166'
+	'rgb444 on_ansi23'
+	'rgb444 on_ansi52'
+	'rgb444 on_ansi94'
+	'rgb444 on_ansi55'
+	'rgb444 on_ansi31'
+	'rgb444 on_ansi66'
+	'rgb444 on_ansi127'
+	'rgb444 on_ansi30'
+	'rgb444 on_ansi124'
+	'rgb444 on_rgb113'
+	'rgb333 on_ansi20'
+	'rgb444 on_ansi130'
+	'rgb444 on_ansi92'
+	'rgb444 on_ansi60'
 	'rgb444 on_ansi27'
-	'rgb444 on_ansi29' 
-	'rgb444 on_rgb124' 
-	'rgb444 on_ansi124' 
-	'rgb444 on_ansi58' 
-	'rgb444 on_ansi92' 
-	'rgb444 on_ansi31' 
-	'rgb444 on_ansi88' 
-	'rgb444 on_ansi55' 
-	'rgb333 on_ansi20') 
+	'rgb444 on_rgb124'
+	'rgb444 on_ansi58'
+	'rgb444 on_rgb101'
+)
 
-colors+=(
-	'rgb444 on_ansi27' 
-	'rgb444 on_ansi30' 
-	'rgb444 on_ansi130' 
-	'rgb444 on_ansi166' 
-	'rgb444 on_ansi124' 
-	'rgb444 on_ansi92' 
-	'rgb444 on_ansi23' 
-	'rgb444 on_ansi58' 
-	'rgb444 on_ansi55' 
-	'rgb444 on_ansi31' 
-	'rgb444 on_ansi88' 
-	'rgb444 on_ansi94' 
-	'rgb444 on_ansi66' 
-	'rgb444 on_rgb113' 
-	'rgb444 on_rgb101' 
-	'rgb333 on_ansi20')
+color_count="${#colors[@]}"
 
-colors+=(
-	'rgb444 on_ansi130' 
-	'rgb444 on_ansi27' 
-	'rgb444 on_ansi127' 
-	'rgb444 on_ansi23' 
-	'rgb444 on_ansi166' 
-	'rgb444 on_ansi60' 
-	'rgb444 on_rgb210' 
-	'rgb444 on_ansi92' 
-	'rgb444 on_ansi30' 
-	'rgb444 on_ansi238' 
-	'rgb444 on_ansi18' 
-	'rgb444 on_ansi52' 
-	'rgb444 on_rgb113' 
-	'rgb333 on_ansi20' 
-	'rgb444 on_ansi137' 
-	'rgb444 on_rgb101')
+list_mode=0 color_index=0
+piper_args=() piper_options=()
 
-xcolors+=(
-	'rgb444 on_ansi23' 
-	'rgb444 on_ansi130' 
-	'rgb444 on_rgb210' 
-	'rgb444 on_ansi127' 
-	'rgb444 on_rgb124' 
-	'rgb444 on_ansi58' 
-	'rgb444 on_ansi124' 
-	'rgb444 on_ansi92' 
-	'rgb444 on_ansi59' 
-	'rgb444 on_ansi88' 
-	'rgb444 on_ansi55' 
-	'rgb444 on_ansi31' 
-	'rgb444 on_rgb101' 
-	'rgb444 on_ansi27' 
-	'rgb444 on_ansi30' 
-	'rgb444 on_ansi18' 
-	'rgb444 on_ansi52' 
-	'rgb444 on_ansi92' 
-	'rgb444 on_ansi124' 
-	'rgb444 on_ansi88' 
-	'rgb444 on_ansi31' 
-	'rgb444 on_ansi55' 
-	'rgb444 on_rgb113' 
-	'rgb444 on_ansi127' 
-	'rgb444 on_ansi58' 
-	'rgb444 on_rgb210' 
-	'rgb444 on_ansi23')
+# Parse command line options
+while [[ $# -gt 0 ]] ; do
+	case "$1" in
+		-l) list_mode=1 ; shift ;;
+		-r) color_index=$((RANDOM % color_count)) ; shift ;;
+		-i) if [[ -z "$2" || ! "$2" =~ ^[0-9]+$ ]] ; then
+				echo "Error: -i requires a numeric argument" >&2
+				exit 1
+			fi
+			
+			color_index="$2"
+			shift 2
+			;;
+		-h|--help) show_usage ;;
+		*) break ;;
+	esac
+done
 
-entries=("$@")
-list_color=
+# Validate color index
+[[ $color_index -ge $color_count ]] && color_index=0
 
-piper_args=
-piper_options=
-color_index=0
-
-[[ "$1" == '-l' ]] && { shift ; list_color='^' ; entries=($(seq 0 ${#colors[@]} | sed 's/$/_test/')) ; }
-
-[[ "$1" == '-r' ]] && { shift ; color_index=$((color_index + 1 + $RANDOM % 5)) ; }
-[[ "$1" == '-i' ]] && { color_index=$2 ; shift ; shift ; }
-
-for w in "${entries[@]}"
-	do
-		[[ "$w" =~ '-g' ]] && piper_options+=" $w" ||
-			{
-			piper_args+=" \"$list_color$w\" '${colors[color_index]}'"
-			((color_index++)) ; ((color_index >= ${#colors[@]})) && color_index=0
-			}
-	done 
-
-if [[ -n "$list_color" ]] ; then
-	eval "printf "%s\\\\n" "${entries[@]}" | piper $piper_options $piper_args"
+# Generate entries for list mode
+if [[ $list_mode -eq 1 ]] ; then
+	entries=()
+	
+	for i in $(seq 0 $((color_count - 1))) ; do
+		entries+=("${i}_test")
+	done
 else
-	eval "cat | piper $piper_options $piper_args"
+	entries=("$@")
+fi
+
+# Build piper arguments
+for pattern in "${entries[@]}" ; do
+	if [[ "$pattern" == "-g" ]] ; then
+		piper_options+=("$pattern")
+	else
+		if [[ $list_mode -eq 1 ]] ; then
+			piper_args+=("^$pattern" "${colors[color_index]}")
+		else
+			piper_args+=("$pattern" "${colors[color_index]}")
+		fi
+		
+		color_index=$(((color_index + 1) % color_count))
+	fi
+done
+
+# Execute piper
+if [[ $list_mode -eq 1 ]] ; then
+	printf "%s\n" "${entries[@]}" | piper "${piper_options[@]}" "${piper_args[@]}"
+else
+	piper "${piper_options[@]}" "${piper_args[@]}"
 fi
 
 # vim: set ft=bash
